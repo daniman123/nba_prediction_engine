@@ -1,0 +1,9 @@
+[workspace]
+workspace.resolver = "2"
+
+members = [
+    "data_fetcher", 
+    "data_wrangler", 
+    "prediction_engine", 
+    "nba_cli"
+]
