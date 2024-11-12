@@ -1,8 +1,10 @@
-use std::{ fs::File, io::{ BufWriter, Write } };
+use crate::{error::FetchError, fetch_data, Endpoint};
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+};
 
-use crate::{ error::FetchError, fetch_data, Endpoint };
-
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Deserialize, Debug)]
@@ -38,7 +40,11 @@ pub async fn fetch_season_schedule() -> Result<(), FetchError> {
 
     let game_dates = data.leagueSchedule.gameDates;
 
-    let file = File::create("")?;
+    let save_file_dir = Endpoint::prepared_data_file_path();
+    let mut save_file_path = save_file_dir.join(file_name);
+    save_file_path.set_extension("json");
+
+    let file = File::create(save_file_path)?;
     let mut writer = BufWriter::new(file);
     serde_json::to_writer(&mut writer, &game_dates)?;
     writer.flush()?;

@@ -1,3 +1,4 @@
+use data_fetcher::gather_and_prepare_fetched_data;
 use dotenv::dotenv;
 use std::env;
 use tracing_appender::non_blocking::WorkerGuard;
@@ -39,4 +40,5 @@ async fn main() {
     tracing::info!("Starting the NBA prediction engine");
 
     // Call your data fetching functions
+    gather_and_prepare_fetched_data().await;
 }

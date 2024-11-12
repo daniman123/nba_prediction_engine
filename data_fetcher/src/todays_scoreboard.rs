@@ -1,8 +1,7 @@
 #![allow(dead_code)]
 
+use crate::{error::FetchError, fetch_data, Endpoint};
 use std::fs::File;
-
-use crate::{ error::FetchError, fetch_data, Endpoint };
 
 use csv::Writer;
 use serde::Deserialize;
@@ -46,7 +45,7 @@ pub async fn fetch_todays_scoreboard() -> Result<(), FetchError> {
         "home_teamName",
         "home_teamCity",
         "home_teamId",
-        "home_score"
+        "home_score",
     ];
 
     wtr.write_record(headers)?;
@@ -96,7 +95,7 @@ pub async fn fetch_todays_scoreboard() -> Result<(), FetchError> {
             home_team_name,
             home_team_city,
             home_team_id,
-            home_team_score
+            home_team_score,
         ];
 
         wtr.write_record(game_record)?;
@@ -109,18 +108,30 @@ pub async fn fetch_todays_scoreboard() -> Result<(), FetchError> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{env, fs, path::Path};
 
     use super::*;
 
     #[test]
+    fn feature() {
+        let file_name = Endpoint::TeamsGeneralOpponent.file_name();
+        let cwd = env::current_dir().unwrap();
+        let file_path = Path::new(&cwd).join("data").join("prepared_data");
+        let save_file_dir = Endpoint::prepared_data_file_path();
+        let mut save_file_path = file_path.join(file_name);
+        save_file_path.set_extension("csv");
+        
+        let cwd = env::current_dir().unwrap();
+        let mut file_path = Path::new(&cwd).join("data").join("prepared_data");
+        println!("{:#?}", file_path)
+    }
+
+    #[test]
     fn test_name() {
-        let file = fs::File
-            ::open("../data/seed_data/todaysScoreboard_00.json")
+        let file = fs::File::open("../data/seed_data/todaysScoreboard_00.json")
             .expect("file should open read only");
-        let json: TodaysScoreboardFetchedResponse = serde_json
-            ::from_reader(file)
-            .expect("file should be proper JSON");
+        let json: TodaysScoreboardFetchedResponse =
+            serde_json::from_reader(file).expect("file should be proper JSON");
         let scoreboard = &json.scoreboard;
         let games = &scoreboard.games;
 
@@ -142,8 +153,18 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .to_string();
-            let away_team_id = away_team.get("teamId").unwrap().to_string();
-            let away_team_score = away_team.get("score").unwrap().to_string();
+            let away_team_id = away_team
+                .get("teamId")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string();
+            let away_team_score = away_team
+                .get("score")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string();
 
             let home_team = game.get("homeTeam").unwrap();
             let home_team_name = home_team
@@ -160,8 +181,18 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .to_string();
-            let home_team_id = home_team.get("teamId").unwrap().to_string();
-            let home_team_score = home_team.get("score").unwrap().to_string();
+            let home_team_id = home_team
+                .get("teamId")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string();
+            let home_team_score = home_team
+                .get("score")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_string();
 
             let game_record = vec![
                 away_team_name,
@@ -171,7 +202,7 @@ mod tests {
                 home_team_name,
                 home_team_city,
                 home_team_id,
-                home_team_score
+                home_team_score,
             ];
 
             csv_record_collection.push(game_record);

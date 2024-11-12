@@ -1,23 +1,39 @@
+pub mod bet_ml_odds;
 pub mod error;
 pub mod injury_report;
 pub mod opponent_shooting_general;
 pub mod player_general_averages;
 pub mod player_index;
+pub mod result_sets;
 pub mod season_schedule;
 pub mod teams_general_advanced;
 pub mod teams_general_opponent;
-pub mod todays_scoreboard;
-pub mod result_sets;
+// pub mod todays_scoreboard;
 
 use crate::error::FetchError;
+use bet_ml_odds::fetch_bet_ml_odds;
 use flate2::read::GzDecoder;
-use reqwest::{ header::{ HeaderMap, HeaderValue }, Client };
+use injury_report::fetch_injury_report;
+use opponent_shooting_general::fetch_opponent_shooting_general;
+use player_general_averages::fetch_player_general_averages;
+use player_index::fetch_player_index;
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    Client,
+};
+use season_schedule::fetch_season_schedule;
 use serde::de::DeserializeOwned;
-use std::fs::{ self, File };
 use std::io::Read;
-use std::io::{ self, Write };
+use std::io::{self, Write};
 use std::path::Path;
-use tracing::{ debug, error, info };
+use std::{
+    env,
+    fs::{self, File},
+    path::PathBuf,
+};
+use teams_general_advanced::fetch_teams_general_advanced;
+use teams_general_opponent::fetch_teams_general_opponent;
+use tracing::{debug, error, info};
 
 #[derive(Debug)]
 pub enum Endpoint {
@@ -69,10 +85,18 @@ impl Endpoint {
             Endpoint::Bet365Odds => "fetched_Bet365Odds_data",
         }
     }
+    pub fn prepared_data_file_path() -> PathBuf {
+        let parent = env::current_dir().unwrap();
+        let cwd = parent.parent().unwrap();
+        let file_path = Path::new(&cwd).join("data").join("prepared_data");
+        // "../data/prepared_data"
+        file_path
+    }
 }
 
 pub async fn fetch_data<T>(url: &str, file_name: &str) -> Result<T, FetchError>
-    where T: DeserializeOwned
+where
+    T: DeserializeOwned,
 {
     let client = Client::new();
     let headers = build_headers();
@@ -95,7 +119,8 @@ pub async fn fetch_data<T>(url: &str, file_name: &str) -> Result<T, FetchError>
 
 fn write_to_file(path: &str, filename: &str, content: &str) -> io::Result<()> {
     fs::create_dir_all(path)?; // Create the directory if it doesn't exist
-    let file_path = Path::new(path).join(filename);
+    let mut file_path = Path::new(path).join(filename);
+    file_path.set_extension("txt");
     let mut file = File::create(file_path)?;
     file.write_all(content.as_bytes())?;
     Ok(())
@@ -104,15 +129,30 @@ fn write_to_file(path: &str, filename: &str, content: &str) -> io::Result<()> {
 fn build_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert("Connection", HeaderValue::from_static("keep-alive"));
-    headers.insert("Accept", HeaderValue::from_static("application/json; charset=utf-8"));
+    headers.insert(
+        "Accept",
+        HeaderValue::from_static("application/json; charset=utf-8"),
+    );
     headers.insert("x-nba-stats-token", HeaderValue::from_static("true"));
-    headers.insert("User-Agent", HeaderValue::from_static("Mozilla/5.0 (compatible; MyApp/1.0)"));
+    headers.insert(
+        "User-Agent",
+        HeaderValue::from_static("Mozilla/5.0 (compatible; MyApp/1.0)"),
+    );
     headers.insert("x-nba-stats-origin", HeaderValue::from_static("stats"));
     headers.insert("Sec-Fetch-Site", HeaderValue::from_static("same-origin"));
     headers.insert("Sec-Fetch-Mode", HeaderValue::from_static("cors"));
-    headers.insert("Referer", HeaderValue::from_static("https://stats.nba.com/"));
-    headers.insert("Accept-Encoding", HeaderValue::from_static("gzip, deflate, br"));
-    headers.insert("Accept-Language", HeaderValue::from_static("en-US,en;q=0.9"));
+    headers.insert(
+        "Referer",
+        HeaderValue::from_static("https://stats.nba.com/"),
+    );
+    headers.insert(
+        "Accept-Encoding",
+        HeaderValue::from_static("gzip, deflate, br"),
+    );
+    headers.insert(
+        "Accept-Language",
+        HeaderValue::from_static("en-US,en;q=0.9"),
+    );
     headers
 }
 
@@ -122,14 +162,33 @@ fn decompress_or_convert(bytes: &[u8], file_name: &str) -> Result<String, FetchE
 
     match decoder.read_to_string(&mut decompressed_data) {
         Ok(_) => {
-            write_to_file("data/fetched_data_output_as_string", file_name, &decompressed_data)?;
+            write_to_file(
+                "../data/fetched_data_output_as_string",
+                file_name,
+                &decompressed_data,
+            )?;
             Ok(decompressed_data)
         }
         Err(_) => {
             // If decompression fails, try converting bytes directly to a UTF-8 string
             let converted_data = String::from_utf8(bytes.to_vec()).map_err(FetchError::Utf8)?;
-            write_to_file("data/fetched_data_output_as_string", file_name, &converted_data)?;
+            write_to_file(
+                "../data/fetched_data_output_as_string",
+                file_name,
+                &converted_data,
+            )?;
             Ok(converted_data)
         }
     }
+}
+
+pub async fn gather_and_prepare_fetched_data() {
+    fetch_teams_general_opponent().await.unwrap();
+    fetch_teams_general_advanced().await.unwrap();
+    fetch_season_schedule().await.unwrap();
+    fetch_player_index().await.unwrap();
+    fetch_player_general_averages().await.unwrap();
+    fetch_opponent_shooting_general().await.unwrap();
+    fetch_injury_report().await.unwrap();
+    fetch_bet_ml_odds().await.unwrap();
 }
